@@ -1,14 +1,26 @@
-# Use a Java 21 base image (since you mentioned Java 21)
-FROM eclipse-temurin:21-jdk-alpine
+# Build Stage
+FROM maven:3.9.5-eclipse-temurin-21-alpine AS build
 
-# Set working directory
 WORKDIR /app
 
-# Copy the built jar file
-COPY target/*.jar app.jar
+# Copy pom.xml and go offline
+COPY pom.xml .
+RUN mvn dependency:go-offline
 
-# Expose port 5000 (to match application.properties)
+# Copy source
+COPY src ./src
+
+# Package the app (skip tests)
+RUN mvn clean package -DskipTests
+
+# Runtime Stage
+FROM eclipse-temurin:21-jdk-alpine
+
+WORKDIR /app
+
+# Copy the built jar from the build stage
+COPY --from=build /app/target/research-assistant-v1-0.0.1-SNAPSHOT.jar ./app.jar
+
 EXPOSE 5000
 
-# Run the application
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
